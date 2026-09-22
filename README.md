@@ -7,13 +7,16 @@ A bash script to update A, AAAA, and CNAME DNS resource records for specified do
 
 ## Overview
 
-This script periodically updates DNS records on Hetzner Cloud when your public IP address changes. It supports:
+This script updates DNS records on Hetzner Cloud to your public IP address. It supports:
 
 - **A records** - IPv4 addresses
 - **AAAA records** - IPv6 addresses
 - **CNAME records** - domain aliases
 
 The script fetches your current public IP addresses, compares them with existing DNS records, and updates them if they differ.
+
+To make this script update the resource records whenever your public IP changes, make it run as aCRON job or find another
+trigger to run it on IP changes.
 
 ## Features
 
