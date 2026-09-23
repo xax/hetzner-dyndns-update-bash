@@ -2,7 +2,7 @@
 
 # SPDX-FileCopyrightText: Copyright (C) Sep 2026 XA. All rights reserved.
 # SPDX-License-Identifier: EUPL-1.2
-# Version: 1.0.0
+# Version: 1.1.0
 #
 # Updates A, AAAA DNS resource records for specified domains/hosts and CNAMEs
 # using the Hetzner Cloud API (as of in place at 2026):
@@ -26,9 +26,28 @@ declare -A CNAME_RECORDS=(
     ["www.domain.tld"]="domain.tld"
 )
 
+cName="${0##*/}"
+cSelfPath="$(realpath -LP "${0%$cName}" )"
+cSelfPath="${cSelfPath:-.}/"
+
+if [[ -r "${cSelfPath}${cName%.*}.conf" ]]; then
+   source ${cSelfPath}${cName%.*}.conf
+fi
+
 # current public IP addresses
 CURRENT_IPV4="$(curl -s https://ipv4.icanhazip.com)"
 CURRENT_IPV6="$(curl -s --max-time 5 https://ipv6.icanhazip.com || true)"
+
+# delete a dns resource record set
+delete_rrset() {
+    local ZONE_ID="$1"
+    local SUBDOMAIN="$2"
+    local RECORD_TYPE="$3"
+    echo "🗑 Deleting record set type: $RECORD_TYPE"
+    curl -s -X DELETE "$HETZNER_API_URL/zones/$ZONE_ID/rrsets/$SUBDOMAIN/$RECORD_TYPE" \
+        -H "Authorization: Bearer $HETZNER_API_KEY" \
+    > /dev/null
+}
 
 # delete a dns resource record
 delete_record() {
@@ -71,13 +90,14 @@ update_domain() {
     local RECORD_ID_A="$(echo "$RECORD_A" | jq -r ".id")"
 
     if [[ "$EXISTING_IPV4" != "$CURRENT_IPV4" ]]; then
-        delete_record "$ZONE_ID" "$SUBDOMAIN" "$RECORD_ID_A" "$EXISTING_IPV4"
+        delete_rrset "$ZONE_ID" "$SUBDOMAIN" A
+        # delete_record "$ZONE_ID" "$SUBDOMAIN" "$RECORD_ID_A" "$EXISTING_IPV4"
         echo "[$DOMAIN] ➡️ Setting new A record to $CURRENT_IPV4"
         curl -s -X POST "$HETZNER_API_URL/zones/$ZONE_ID/rrsets/$SUBDOMAIN/A/actions/add_records" \
             -H "Authorization: Bearer $HETZNER_API_KEY" \
             -H "Content-Type: application/json" \
             -d "{
-                \"ttl\": \"$HETZNER_TTL\",
+                \"ttl\": $HETZNER_TTL,
                 \"records\": [
                     {
                         \"value\": \"$CURRENT_IPV4\"
@@ -95,13 +115,14 @@ update_domain() {
         local RECORD_ID_AAAA="$(echo "$RECORD_AAAA" | jq -r ".id")"
 
         if [[ "$EXISTING_IPV6" != "$CURRENT_IPV6" ]]; then
-            delete_record "$ZONE_ID" "$SUBDOMAIN" "$RECORD_ID_AAAA" "$EXISTING_IPV6"
+            delete_rrset "$ZONE_ID" "$SUBDOMAIN" AAAA
+            # delete_record "$ZONE_ID" "$SUBDOMAIN" "$RECORD_ID_AAAA" "$EXISTING_IPV6"
             echo "[$DOMAIN] ➡️ Setting new AAAA record to $CURRENT_IPV6"
             curl -s -X POST "$HETZNER_API_URL/zones/$ZONE_ID/rrsets/$SUBDOMAIN/AAAA/actions/update_records" \
                 -H "Authorization: Bearer $HETZNER_API_KEY" \
                 -H "Content-Type: application/json" \
                 -d "{
-                    \"ttl\": \"$HETZNER_TTL\",
+                    \"ttl\": $HETZNER_TTL,
                     \"records\": [
                         {
                             \"value\": \"$CURRENT_IPV6\"
@@ -140,7 +161,7 @@ update_cname() {
             -H "Authentication: Bearer $HETZNER_API_KEY" \
             -H "Content-Type: application/json" \
             -d "{
-                \"ttl\": \"$HETZNER_TTL\",
+                \"ttl\": $HETZNER_TTL,
                 \"records\": [
                     {
                         \"value\": \"$TARGET\"
@@ -152,7 +173,7 @@ update_cname() {
     fi
 }
 
-# Durchlauf
+# Run
 echo "🌐 Starting DNS update…"
 
 for DOMAIN in "${DOMAINS[@]}"; do

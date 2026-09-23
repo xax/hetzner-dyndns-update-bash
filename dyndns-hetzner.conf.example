@@ -1,0 +1,14 @@
+# Hetzner API key
+HETZNER_API_KEY="Ksdf97HJGH8we63hH86LKGG8dsfjHjvsdfjgJHF875BHNmvbsdf87543J7BJG65j"
+HETZNER_TTL=60
+
+# Domains with A/AAAA records
+DOMAINS=(
+    "my-domain.example"
+    "www.my-domain.example"
+)
+
+# CNAME mappings
+declare -A CNAME_RECORDS=(
+    ["www.domain.tld"]="domain.tld"
+)
